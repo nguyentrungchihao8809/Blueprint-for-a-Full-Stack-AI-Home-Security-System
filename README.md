@@ -1,5 +1,6 @@
+
 [![Status: Completed](https://img.shields.io/badge/Status-Completed-brightgreen.svg)](#)
-[![Language: C++](https://www.w3schools.com/cpp/)](#)
+[![Language: C++](https://img.shields.io/badge/Language-C++-blue.svg)](https://www.w3schools.com/cpp/)
 [![Language: Python](https://img.shields.io/badge/Language-Python-yellow.svg)](#)
 [![Platform: Arduino](https://img.shields.io/badge/Platform-Arduino-red.svg)](#)
 [![Tools: Proteus](https://img.shields.io/badge/Tools-Proteus-orange.svg)](#)
