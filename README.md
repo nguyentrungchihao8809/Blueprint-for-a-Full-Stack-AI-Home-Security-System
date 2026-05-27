@@ -1,8 +1,14 @@
-# 🏠 Smart Home Security System (IoT-Based)
+[![Status: Completed](https://img.shields.io/badge/Status-Completed-brightgreen.svg)](#)
+[![Language: C++](https://img.shields.io/badge/Language-C++-blue.svg)](#)
+[![Language: Python](https://img.shields.io/badge/Language-Python-yellow.svg)](#)
+[![Platform: Arduino](https://img.shields.io/badge/Platform-Arduino-red.svg)](#)
+[![Tools: Proteus](https://img.shields.io/badge/Tools-Proteus-orange.svg)](#)
+
+# Smart Home Security System (IoT-Based)
 
 Dự án **Hệ thống an ninh nhà thông minh** sử dụng Arduino kết hợp giao tiếp Serial với máy tính thông qua **Python Bridge**. Hệ thống hỗ trợ giám sát môi trường (nhiệt độ, độ ẩm, khí gas) và tăng cường an ninh (phát hiện đột nhập) theo thời gian thực.
 
-## 📋 Mục lục
+## Mục lục
 
 1. [Tính năng hệ thống](https://www.google.com/search?q=%23-t%C3%ADnh-n%C4%83ng-h%E1%BB%87-th%E1%BB%91ng)
 2. [Cấu trúc dự án](https://www.google.com/search?q=%23-c%E1%BA%A5u-tr%C3%BAc-d%E1%BB%B1-%C3%A1n)
