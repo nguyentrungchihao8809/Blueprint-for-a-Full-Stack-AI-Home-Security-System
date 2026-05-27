@@ -1,8 +1,8 @@
 
-[![Status: Completed](https://img.shields.io/badge/Status-Completed-brightgreen.svg)](#)
+[![Status: Completed](https://img.shields.io/badge/Status-Completed-brightgreen.svg)](https://www.w3schools.com/)
 [![Language: C++](https://img.shields.io/badge/Language-C++-blue.svg)](https://www.w3schools.com/cpp/)
-[![Language: Python](https://img.shields.io/badge/Language-Python-yellow.svg)](#)
-[![Platform: Arduino](https://img.shields.io/badge/Platform-Arduino-red.svg)](#)
+[![Language: Python](https://img.shields.io/badge/Language-Python-yellow.svg)](https://www.w3schools.com/python/)
+[![Platform: Arduino](https://img.shields.io/badge/Platform-Arduino-red.svg)](https://docs.arduino.cc/learn/)
 [![Tools: Proteus](https://img.shields.io/badge/Tools-Proteus-orange.svg)](#)
 
 # Smart Home Security System (IoT-Based)
@@ -42,7 +42,7 @@ Dự án **Hệ thống an ninh nhà thông minh** sử dụng Arduino kết h�
 
 ## Sơ đồ nguyên lý
 
-*(ảnh minh họa)*
+<img width="773" height="688" alt="image" src="https://github.com/user-attachments/assets/4dce22a7-360b-4672-94e5-af2d3432f4f6" />
 
 ---
 
