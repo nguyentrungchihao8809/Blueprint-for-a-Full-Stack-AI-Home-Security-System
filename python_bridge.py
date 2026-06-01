@@ -4,7 +4,7 @@ import time
 import serial
 
 # Cấu hình hệ thống
-COM_PORT = 'COM4'
+COM_PORT = 'COM5'
 BAUD_RATE = 9600
 
 

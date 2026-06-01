@@ -29,11 +29,15 @@ const int CRITICAL_GAS = 300;
 bool manualLED = false;
 bool manualBuzzer = false;
 
+// Biến điều hòa
+int acTemp = 0;        // 0 = tắt, 24 hoặc 26 = nhiệt độ cài
+int personCount = 0;   // Số người đang ở trong phòng
+
 // Biến quản lý thời gian quét định kỳ
 unsigned long previousMillis = 0;   
 const long INTERVAL = 2500;  
 
-// Biến lưu trạng thái trước đó để chống trùng lặp sự kiện
+// Biến lưu trạng thái trước đó
 int lastPirState = LOW;
 int lastDoorState = HIGH;
 
@@ -82,6 +86,24 @@ void loop() {
         manualBuzzer = false; 
         Serial.println("EVENT:BUZZER_MANUAL_OFF");
         break;
+
+      // ---- DIEU HOA ----
+      case '5':
+        acTemp = 26;
+        personCount = 1;
+        Serial.println("EVENT:AC_26C_1-2NGUOI");
+        break;
+      case '6':
+        acTemp = 24;
+        personCount = 3;
+        Serial.println("EVENT:AC_24C_3+NGUOI");
+        break;
+      case '7':
+        acTemp = 0;
+        personCount = 0;
+        Serial.println("EVENT:AC_OFF_0NGUOI");
+        break;
+
       default:
         break;
     }
@@ -93,14 +115,12 @@ void loop() {
   int gasAnalog = analogRead(GAS_PIN);
   int gasPPM = map(gasAnalog, 0, 1023, 0, 1000);
   
-  // Kiểm tra điều kiện tự động kích hoạt báo động (Hỏa hoạn/Rò rỉ khí)
   bool isFireDanger = (currentTemp > CRITICAL_TEMP || gasPPM > CRITICAL_GAS);
 
-  // Điều khiển thiết bị đầu ra (Ưu tiên chế độ tự động an toàn trước điều khiển thủ công)
   digitalWrite(LED_PIN, (isFireDanger || manualLED) ? HIGH : LOW);
   digitalWrite(BUZZER_PIN, (isFireDanger || manualBuzzer) ? HIGH : LOW);
 
-  // 3. GIÁM SÁT VÀ PHÁT HIỆN SỰ KIỆN KHẨN CẤP (NGẮT CHỐNG SPAM)
+  // 3. GIÁM SÁT SỰ KIỆN KHẨN CẤP
   if (pirState == HIGH && lastPirState == LOW) {
     Serial.println("EVENT:MOTION_DETECTED");
   }
@@ -111,12 +131,11 @@ void loop() {
   }
   lastDoorState = doorState;
 
-  // 4. CẬP NHẬT ĐỊNH KỲ LCD VÀ TRUYỀN DỮ LIỆU LÊN GATEWAY
+  // 4. CẬP NHẬT ĐỊNH KỲ LCD VÀ TRUYỀN DỮ LIỆU
   unsigned long currentMillis = millis(); 
   if (currentMillis - previousMillis >= INTERVAL) {
     previousMillis = currentMillis; 
 
-    // Đọc và lọc nhiễu dữ liệu từ cảm biến DHT
     float rawHumid = dht.readHumidity();
     float rawTemp = dht.readTemperature();
     
@@ -127,21 +146,32 @@ void loop() {
       currentHumid = rawHumid;
     }
 
-    // Hiển thị cục bộ trên LCD 16x2
+    // Hiển thị dòng 1: Nhiệt độ, độ ẩm
     lcd.setCursor(0, 0);
     lcd.print("T:"); lcd.print((int)currentTemp); lcd.print("C ");
-    lcd.print("H:"); lcd.print((int)currentHumid); lcd.print("%   ");
+    lcd.print("H:"); lcd.print((int)currentHumid); lcd.print("%  ");
     
+    // Hiển thị dòng 2: Điều hòa + số người
     lcd.setCursor(0, 1);
-    lcd.print("G:"); lcd.print(gasPPM); lcd.print("PPM ");
-    lcd.print(pirState == HIGH ? "M:!" : "M:-");
-    lcd.print(doorState == HIGH ? " D:O" : " D:C");
+    if (acTemp == 0) {
+      lcd.print("AC:OFF P:");
+      lcd.print(personCount);
+      lcd.print("      ");
+    } else {
+      lcd.print("AC:");
+      lcd.print(acTemp);
+      lcd.print("C P:");
+      lcd.print(personCount);
+      lcd.print("     ");
+    }
 
-    // Đóng gói và gửi chuỗi dữ liệu chuẩn lên Python Gateway
+    // Gửi dữ liệu lên Python Gateway
     Serial.print("TEMP:");   Serial.print(currentTemp);
     Serial.print("|HUMID:"); Serial.print(currentHumid);
     Serial.print("|GAS:");   Serial.print(gasPPM);
     Serial.print("|PIR:");   Serial.print(pirState);
-    Serial.print("|DOOR:");  Serial.println(doorState); 
+    Serial.print("|DOOR:");  Serial.print(doorState);
+    Serial.print("|AC:");    Serial.print(acTemp);
+    Serial.print("|PERSON:"); Serial.println(personCount);
   }
 }
