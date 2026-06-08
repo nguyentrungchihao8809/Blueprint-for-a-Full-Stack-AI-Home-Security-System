@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "958687125944",
+    "firebase_url": "https://sentinel-edeb5-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "sentinel-edeb5",
+    "storage_bucket": "sentinel-edeb5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:958687125944:android:8452602d45325731cf6f4d",
+        "android_client_info": {
+          "package_name": "com.sentinel.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAcjm-dV8i2KWO4uqLZqWh8jQ2xewt4dxY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
