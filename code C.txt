@@ -67,45 +67,82 @@ void setup() {
 void loop() {
   // 1. XỬ LÝ LỆNH ĐIỀU KHIỂN TỪ GATEWAY (PYTHON)
   if (Serial.available() > 0) {
-    char receivedChar = Serial.read(); 
-    
-    switch (receivedChar) {
-      case '1':
-        manualLED = true;
-        Serial.println("EVENT:LED_MANUAL_ON");
-        break;
-      case '2':
-        manualLED = false;
-        Serial.println("EVENT:LED_MANUAL_OFF");
-        break;
-      case '3':
-        manualBuzzer = true;  
-        Serial.println("EVENT:BUZZER_MANUAL_ON");
-        break;
-      case '4':
-        manualBuzzer = false; 
-        Serial.println("EVENT:BUZZER_MANUAL_OFF");
-        break;
+    while (Serial.available() > 0) {
+      char receivedChar = Serial.read();
+      Serial.print("RX:");
+      Serial.println(receivedChar);
 
-      // ---- DIEU HOA ----
-      case '5':
-        acTemp = 26;
-        personCount = 1;
-        Serial.println("EVENT:AC_26C_1-2NGUOI");
-        break;
-      case '6':
-        acTemp = 24;
-        personCount = 3;
-        Serial.println("EVENT:AC_24C_3+NGUOI");
-        break;
-      case '7':
-        acTemp = 0;
-        personCount = 0;
-        Serial.println("EVENT:AC_OFF_0NGUOI");
-        break;
+      // Bỏ qua ký tự xuống dòng/return để tránh lỗi khi gửi theo dạng "5\n"
+      if (receivedChar == '\n' || receivedChar == '\r') {
+        continue;
+      }
 
-      default:
-        break;
+      switch (receivedChar) {
+        case '1':
+          manualLED = true;
+          Serial.println("EVENT:LED_MANUAL_ON");
+          Serial.flush();
+          break;
+        case '2':
+          manualLED = false;
+          Serial.println("EVENT:LED_MANUAL_OFF");
+          Serial.flush();
+          break;
+        case '3':
+          manualBuzzer = true;
+          Serial.println("EVENT:BUZZER_MANUAL_ON");
+          Serial.flush();
+          break;
+        case '4':
+          manualBuzzer = false;
+          Serial.println("EVENT:BUZZER_MANUAL_OFF");
+          Serial.flush();
+          break;
+
+        // ---- DIEU HOA ----
+        case '5':
+          acTemp = 26;
+          personCount = 1;
+          Serial.println("EVENT:AC_26C_1-2NGUOI");
+          Serial.print("TEMP:"); Serial.print(currentTemp);
+          Serial.print("|HUMID:"); Serial.print(currentHumid);
+          Serial.print("|GAS:"); Serial.print(gasPPM);
+          Serial.print("|PIR:"); Serial.print(pirState);
+          Serial.print("|DOOR:"); Serial.print(doorState);
+          Serial.print("|AC:"); Serial.print(acTemp);
+          Serial.print("|PERSON:"); Serial.println(personCount);
+          Serial.flush();
+          break;
+        case '6':
+          acTemp = 24;
+          personCount = 3;
+          Serial.println("EVENT:AC_24C_3+NGUOI");
+          Serial.print("TEMP:"); Serial.print(currentTemp);
+          Serial.print("|HUMID:"); Serial.print(currentHumid);
+          Serial.print("|GAS:"); Serial.print(gasPPM);
+          Serial.print("|PIR:"); Serial.print(pirState);
+          Serial.print("|DOOR:"); Serial.print(doorState);
+          Serial.print("|AC:"); Serial.print(acTemp);
+          Serial.print("|PERSON:"); Serial.println(personCount);
+          Serial.flush();
+          break;
+        case '7':
+          acTemp = 0;
+          personCount = 0;
+          Serial.println("EVENT:AC_OFF_0NGUOI");
+          Serial.print("TEMP:"); Serial.print(currentTemp);
+          Serial.print("|HUMID:"); Serial.print(currentHumid);
+          Serial.print("|GAS:"); Serial.print(gasPPM);
+          Serial.print("|PIR:"); Serial.print(pirState);
+          Serial.print("|DOOR:"); Serial.print(doorState);
+          Serial.print("|AC:"); Serial.print(acTemp);
+          Serial.print("|PERSON:"); Serial.println(personCount);
+          Serial.flush();
+          break;
+
+        default:
+          break;
+      }
     }
   }
 

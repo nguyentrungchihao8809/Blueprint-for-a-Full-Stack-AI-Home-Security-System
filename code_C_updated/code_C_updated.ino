@@ -74,49 +74,64 @@ void loop() {
   int gasPPM = map(gasAnalog, 0, 1023, 0, 1000);
 
   if (Serial.available() > 0) {
-    char receivedChar = Serial.read(); 
-    
-    switch (receivedChar) {
-      case '1':
-        manualLED = true;
-        Serial.println("EVENT:LED_ON");
-        printData(pirState, doorState, gasPPM);
-        break;
-      case '2':
-        manualLED = false;
-        Serial.println("EVENT:LED_OFF");
-        printData(pirState, doorState, gasPPM);
-        break;
-      case '3':
-        manualBuzzer = true;  
-        Serial.println("EVENT:BUZZER_ON");
-        printData(pirState, doorState, gasPPM);
-        break;
-      case '4':
-        manualBuzzer = false; 
-        Serial.println("EVENT:BUZZER_OFF");
-        printData(pirState, doorState, gasPPM);
-        break;
-      case '5':
-        acTemp = 26;
-        personCount = 1;
-        Serial.println("EVENT:AC_26C");
-        printData(pirState, doorState, gasPPM);
-        break;
-      case '6':
-        acTemp = 24;
-        personCount = 3;
-        Serial.println("EVENT:AC_24C");
-        printData(pirState, doorState, gasPPM);
-        break;
-      case '7':
-        acTemp = 0;
-        personCount = 0;
-        Serial.println("EVENT:AC_OFF");
-        printData(pirState, doorState, gasPPM);
-        break;
-      default:
-        break;
+    while (Serial.available() > 0) {
+      char receivedChar = Serial.read();
+      Serial.print("RX:");
+      Serial.println(receivedChar);
+
+      if (receivedChar == '\n' || receivedChar == '\r') {
+        continue;
+      }
+
+      switch (receivedChar) {
+        case '1':
+          manualLED = true;
+          Serial.println("EVENT:LED_ON");
+          printData(pirState, doorState, gasPPM);
+          Serial.flush();
+          break;
+        case '2':
+          manualLED = false;
+          Serial.println("EVENT:LED_OFF");
+          printData(pirState, doorState, gasPPM);
+          Serial.flush();
+          break;
+        case '3':
+          manualBuzzer = true;
+          Serial.println("EVENT:BUZZER_ON");
+          printData(pirState, doorState, gasPPM);
+          Serial.flush();
+          break;
+        case '4':
+          manualBuzzer = false;
+          Serial.println("EVENT:BUZZER_OFF");
+          printData(pirState, doorState, gasPPM);
+          Serial.flush();
+          break;
+        case '5':
+          acTemp = 26;
+          personCount = 1;
+          Serial.println("EVENT:AC_26C");
+          printData(pirState, doorState, gasPPM);
+          Serial.flush();
+          break;
+        case '6':
+          acTemp = 24;
+          personCount = 3;
+          Serial.println("EVENT:AC_24C");
+          printData(pirState, doorState, gasPPM);
+          Serial.flush();
+          break;
+        case '7':
+          acTemp = 0;
+          personCount = 0;
+          Serial.println("EVENT:AC_OFF");
+          printData(pirState, doorState, gasPPM);
+          Serial.flush();
+          break;
+        default:
+          break;
+      }
     }
   }
 

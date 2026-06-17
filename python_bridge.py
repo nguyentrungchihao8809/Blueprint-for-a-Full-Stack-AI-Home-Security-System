@@ -17,7 +17,6 @@ class SerialBridge:
         self.recv_thread = None
 
     def start(self):
-        """Khởi tạo kết nối Serial và kích hoạt luồng nhận dữ liệu ngầm."""
         try:
             self.serial_conn = serial.Serial(
                 port=self.port, 
@@ -41,14 +40,12 @@ class SerialBridge:
             return False
 
     def stop(self):
-        """Dừng hệ thống và giải phóng tài nguyên."""
         self.is_running = False
         if self.serial_conn and self.serial_conn.is_open:
             self.serial_conn.close()
         print("[INFO] Da dong he thong cau noi an toan.")
 
     def _receive_loop(self):
-        """Luồng chạy ngầm liên tục kiểm tra và đọc dữ liệu từ Serial."""
         print(f"[INFO] Luong nhan du lieu tu {self.port} da khoi dong.")
         
         while self.is_running:
@@ -60,15 +57,14 @@ class SerialBridge:
                     if decoded_data:
                         self._handle_incoming_data(decoded_data)
                         
-                time.sleep(0.01)  # Giảm tải CPU nhưng vẫn đảm bảo độ nhạy
+                time.sleep(0.01)
             except Exception as e:
                 print(f"\n[ERROR] Mat ket noi khi doc du lieu: {e}")
                 self.is_running = False
                 break
 
     def _handle_incoming_data(self, data):
-        """Phân tích và xử lý chuỗi dữ liệu nhận được."""
-        # 1. Xử lý dữ liệu định kỳ từ các cảm biến
+        # Xu ly du lieu cam bien
         if data.startswith("TEMP:"):
             try:
                 parts = data.split('|')
@@ -77,28 +73,50 @@ class SerialBridge:
                 gas = int(parts[2].split(':')[1])
                 pir = int(parts[3].split(':')[1])
                 door = int(parts[4].split(':')[1])
+                ac = int(parts[5].split(':')[1]) if len(parts) > 5 else 0
+                person = int(parts[6].split(':')[1]) if len(parts) > 6 else 0
                 
                 door_status = "MO" if door == 1 else "DONG"
+                ac_status = f"{ac}C" if ac > 0 else "OFF"
                 
-                print(f"\n[SENSOR] Temp: {temp}C | Humid: {humid}% | Gas: {gas}PPM | PIR: {pir} | Door: {door_status}")
-                print("Nhap lenh (1-4) hoac 'exit': ", end="", flush=True)
+                print(f"\n[SENSOR] Temp: {temp}C | Humid: {humid}% | Gas: {gas}PPM | PIR: {pir} | Door: {door_status} | AC: {ac_status} | Person: {person}")
+                print("Nhap lenh (1-7) hoac 'exit': ", end="", flush=True)
             except (IndexError, ValueError):
-                pass  # Bỏ qua nếu chuỗi dữ liệu bị lỗi định dạng khi truyền
+                pass
                 
-        # 2. Xử lý sự kiện khẩn cấp
+        # Xu ly su kien
         elif data.startswith("EVENT:"):
-            print(f"\n[WARN_SYSTEM] {data}")
+            print(f"\n[EVENT] {data}")
             if "MOTION_DETECTED" in data:
-                print(" --> AI: Phat hien dot nhap! Kich hoat kich ban camera...")
+                print(" --> Phat hien chuyen dong!")
             elif "DOOR_OPENED" in data:
-                print(" --> ALERT: Cua bi cay trai phep!")
-            print("Nhap lenh (1-4) hoac 'exit': ", end="", flush=True)
+                print(" --> Cua bi mo!")
+            elif "LED_ON" in data:
+                print(" --> Da bat LED!")
+            elif "LED_OFF" in data:
+                print(" --> Da tat LED!")
+            elif "BUZZER_ON" in data:
+                print(" --> Da bat coi!")
+            elif "BUZZER_OFF" in data:
+                print(" --> Da tat coi!")
+            elif "AC_26C" in data:
+                print(" --> Dieu hoa dat 26 do C!")
+            elif "AC_24C" in data:
+                print(" --> Dieu hoa dat 24 do C!")
+            elif "AC_OFF" in data:
+                print(" --> Dieu hoa tat!")
+            print("Nhap lenh (1-7) hoac 'exit': ", end="", flush=True)
 
     def send_command(self, cmd):
-        """Gửi lệnh xuống mạch ngoại vi."""
         if self.serial_conn and self.serial_conn.is_open:
-            self.serial_conn.write(cmd.encode('utf-8'))
-            print(f"[TX] Da gui lenh: {cmd}")
+            payload = (cmd + "\r\n").encode('utf-8')
+            self.serial_conn.write(payload)
+            self.serial_conn.flush()
+            time.sleep(0.2)
+            if self.serial_conn.in_waiting > 0:
+                reply = self.serial_conn.read(self.serial_conn.in_waiting).decode('utf-8', errors='ignore')
+                print(f"[SERIAL REPLY] {reply.strip()}")
+            print(f"[TX] Da gui lenh: {cmd} (bytes={payload!r})")
             return True
         return False
 
@@ -110,7 +128,7 @@ def main():
     if not bridge.start():
         sys.exit(1)
         
-    time.sleep(0.5)  # Chờ luồng nhận ổn định giao diện
+    time.sleep(0.5)
     
     print("\n============================================")
     print(" HUONG DAN DIEU KHIEN MACH PROTEUS")
@@ -118,6 +136,9 @@ def main():
     print(" - '2': Tat LED bao dong")
     print(" - '3': Bat Coi Hu")
     print(" - '4': Tat Coi Hu")
+    print(" - '5': Dieu hoa 26 do C (1-2 nguoi)")
+    print(" - '6': Dieu hoa 24 do C (3+ nguoi)")
+    print(" - '7': Tat dieu hoa")
     print(" - 'exit': Thoat chuong trinh")
     print("============================================\n")
     
@@ -128,10 +149,10 @@ def main():
             if cmd.lower() == 'exit':
                 break
                 
-            if cmd in ['1', '2', '3', '4']:
+            if cmd in ['1', '2', '3', '4', '5', '6', '7']:
                 bridge.send_command(cmd)
             else:
-                print("[INVALID] Vui long chi nhap tu 1 den 4 hoac 'exit'.")
+                print("[INVALID] Vui long chi nhap tu 1 den 7 hoac 'exit'.")
                 
     except KeyboardInterrupt:
         print("\n[INFO] Nguoi dung yeu cau dung chuong trinh.")

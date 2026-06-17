@@ -8,7 +8,7 @@ import time
 # ============================================
 COM_PORT = 'COM5'
 BAUD_RATE = 9600
-CONFIDENCE = 0.5
+CONFIDENCE = 0.3
 
 # ============================================
 # KET NOI SERIAL VOI ARDUINO
@@ -33,9 +33,15 @@ print("San sang! Nhan 'Q' de thoat.\n")
 # HAM GUI TIN HIEU VE ARDUINO
 # ============================================
 def send_signal(signal):
-    if ser:
-        ser.write(signal.encode())
-        print(f"[ARDUINO] Da gui tin hieu: '{signal}'")
+    if ser and ser.is_open:
+        payload = (signal + "\r\n").encode('utf-8')
+        ser.write(payload)
+        ser.flush()
+        time.sleep(0.2)  # Cho Arduino xu ly va tra loi
+        if ser.in_waiting > 0:
+            reply = ser.read(ser.in_waiting).decode('utf-8', errors='ignore')
+            print(f"[SERIAL REPLY] {reply.strip()}")
+        print(f"[ARDUINO] Da gui tin hieu: '{signal}' (bytes={payload!r})")
 
 # Bien trang thai
 fire_detected = False
@@ -60,7 +66,14 @@ while True:
 
     # ---- PHAT HIEN LUA ----
     results_fire = model_fire(frame_fire, verbose=False)
-    annotated_fire = results_fire[0].plot()
+
+    annotated_fire = frame_fire.copy()
+    for box in results_fire[0].boxes:
+        if box.conf[0] >= CONFIDENCE:
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            cv2.rectangle(annotated_fire, (x1, y1), (x2, y2), (0, 0, 255), 2)
+            cv2.putText(annotated_fire, f"fire {box.conf[0]:.2f}",
+                       (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
     fire_found = any(box.conf[0] >= CONFIDENCE for box in results_fire[0].boxes)
 
@@ -81,16 +94,21 @@ while True:
                 cv2.FONT_HERSHEY_SIMPLEX, 1, color_fire, 2)
     cv2.imshow("Camera 1 - Phat hien LUA", annotated_fire)
 
-    # ---- PHAT HIEN VA DEM NGUOI ----
+    # ---- CHI PHAT HIEN NGUOI ----
     results_thief = model_thief(frame_thief, verbose=False)
-    annotated_thief = results_thief[0].plot()
 
-    # Dem so nguoi trong frame
-    person_count = sum(
-        1 for box in results_thief[0].boxes
-        if model_thief.names[int(box.cls[0])] == "person"
-        and box.conf[0] >= CONFIDENCE
-    )
+    annotated_thief = frame_thief.copy()
+    person_count = 0
+    for box in results_thief[0].boxes:
+        cls_id = int(box.cls[0])
+        label = model_thief.names[cls_id]
+        conf = box.conf[0]
+        if label == "person" and conf >= CONFIDENCE:
+            person_count += 1
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            cv2.rectangle(annotated_thief, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(annotated_thief, f"person {conf:.2f}",
+                       (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
     # Gui tin hieu dieu hoa neu so nguoi thay doi
     if person_count != prev_person_count:
@@ -105,26 +123,26 @@ while True:
             send_signal('6')
         prev_person_count = person_count
 
-    # Hien thi trang thai nguoi + dieu hoa
+    # Hien thi trang thai
     if person_count == 0:
         status_ac = "0 nguoi | AC: OFF"
         color_ac = (200, 200, 200)
     elif person_count <= 2:
         status_ac = f"{person_count} nguoi | AC: 26C"
-        color_ac = (255, 200, 0)
+        color_ac = (0, 255, 255)
     else:
         status_ac = f"{person_count} nguoi | AC: 24C"
         color_ac = (0, 100, 255)
 
     cv2.putText(annotated_thief, status_ac, (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, color_ac, 2)
-    cv2.imshow("Camera 2 - Dem nguoi & Dieu hoa", annotated_thief)
+    cv2.imshow("Camera 2 - Chi phat hien NGUOI", annotated_thief)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         print("Thoat chuong trinh.")
         break
 
-cap_fire.release()
+cap_fire.release()  
 cap_thief.release()
 cv2.destroyAllWindows()
 if ser:
