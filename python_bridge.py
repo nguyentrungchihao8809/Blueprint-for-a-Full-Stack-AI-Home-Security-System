@@ -2,10 +2,25 @@ import sys
 import threading
 import time
 import serial
+import serial.tools.list_ports
 
 # Cấu hình hệ thống
-COM_PORT = 'COM5'
 BAUD_RATE = 9600
+
+
+def find_serial_port():
+    preferred = ['COM4', 'COM5']
+    for port in preferred:
+        try:
+            test = serial.Serial(port, BAUD_RATE, timeout=0.2)
+            test.close()
+            return port
+        except Exception:
+            pass
+    return preferred[0]
+
+
+COM_PORT = find_serial_port()
 
 
 class SerialBridge:
@@ -109,13 +124,27 @@ class SerialBridge:
 
     def send_command(self, cmd):
         if self.serial_conn and self.serial_conn.is_open:
+            self.serial_conn.reset_input_buffer()
             payload = (cmd + "\r\n").encode('utf-8')
             self.serial_conn.write(payload)
             self.serial_conn.flush()
-            time.sleep(0.2)
-            if self.serial_conn.in_waiting > 0:
-                reply = self.serial_conn.read(self.serial_conn.in_waiting).decode('utf-8', errors='ignore')
-                print(f"[SERIAL REPLY] {reply.strip()}")
+
+            reply_lines = []
+            deadline = time.time() + 1.0
+            while time.time() < deadline:
+                if self.serial_conn.in_waiting > 0:
+                    line = self.serial_conn.readline()
+                    if line:
+                        decoded = line.decode('utf-8', errors='ignore').strip()
+                        if decoded:
+                            reply_lines.append(decoded)
+                else:
+                    time.sleep(0.05)
+
+            if reply_lines:
+                print(f"[SERIAL REPLY] {' | '.join(reply_lines)}")
+            else:
+                print(f"[SERIAL WARNING] Khong nhan duoc phan hoi sau khi gui '{cmd}'")
             print(f"[TX] Da gui lenh: {cmd} (bytes={payload!r})")
             return True
         return False

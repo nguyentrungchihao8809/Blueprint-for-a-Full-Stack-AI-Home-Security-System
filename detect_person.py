@@ -1,14 +1,29 @@
 from ultralytics import YOLO
 import cv2
 import serial
+import serial.tools.list_ports
 import time
 
 # ============================================
 # CAU HINH
 # ============================================
-COM_PORT = 'COM5'
 BAUD_RATE = 9600
 CONFIDENCE = 0.3
+
+
+def find_serial_port():
+    preferred = ['COM4', 'COM5']
+    for port in preferred:
+        try:
+            test = serial.Serial(port, BAUD_RATE, timeout=0.2)
+            test.close()
+            return port
+        except Exception:
+            pass
+    return preferred[0]
+
+
+COM_PORT = find_serial_port()
 
 # ============================================
 # KET NOI SERIAL VOI ARDUINO

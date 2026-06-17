@@ -1,14 +1,46 @@
 from ultralytics import YOLO
+import argparse
 import cv2
 import serial
+import serial.tools.list_ports
 import time
 
 # ============================================
 # CAU HINH
 # ============================================
-COM_PORT = 'COM5'
 BAUD_RATE = 9600
 CONFIDENCE = 0.3
+
+
+def find_serial_port():
+    preferred = ['COM4', 'COM5']
+    for port in preferred:
+        try:
+            probe = serial.Serial(port, BAUD_RATE, timeout=0.5)
+            probe.reset_input_buffer()
+            probe.reset_output_buffer()
+            probe.write(b'7\r\n')
+            probe.flush()
+            time.sleep(0.3)
+            reply = probe.read(probe.in_waiting).decode('utf-8', errors='ignore')
+            probe.close()
+            if 'EVENT:' in reply or 'TEMP:' in reply:
+                print(f"[PORT-OK] {port} tra loi du lieu: {reply.strip()}")
+                return port
+            print(f"[PORT-NOT-RESPOND] {port} khong tra loi.")
+        except Exception:
+            pass
+    return preferred[0]
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='YOLO + Serial control')
+    parser.add_argument('--port', default=None, help='chon cong serial (VD: COM4)')
+    return parser.parse_args()
+
+
+args = parse_args()
+COM_PORT = args.port if args.port else find_serial_port()
 
 # ============================================
 # KET NOI SERIAL VOI ARDUINO
@@ -34,13 +66,27 @@ print("San sang! Nhan 'Q' de thoat.\n")
 # ============================================
 def send_signal(signal):
     if ser and ser.is_open:
+        ser.reset_input_buffer()
         payload = (signal + "\r\n").encode('utf-8')
         ser.write(payload)
         ser.flush()
-        time.sleep(0.2)  # Cho Arduino xu ly va tra loi
-        if ser.in_waiting > 0:
-            reply = ser.read(ser.in_waiting).decode('utf-8', errors='ignore')
-            print(f"[SERIAL REPLY] {reply.strip()}")
+
+        reply_lines = []
+        deadline = time.time() + 1.2
+        while time.time() < deadline:
+            if ser.in_waiting > 0:
+                line = ser.readline()
+                if line:
+                    decoded = line.decode('utf-8', errors='ignore').strip()
+                    if decoded:
+                        reply_lines.append(decoded)
+            else:
+                time.sleep(0.05)
+
+        if reply_lines:
+            print(f"[SERIAL REPLY] {' | '.join(reply_lines)}")
+        else:
+            print(f"[SERIAL WARNING] Khong nhan duoc phan hoi sau khi gui '{signal}'")
         print(f"[ARDUINO] Da gui tin hieu: '{signal}' (bytes={payload!r})")
 
 # Bien trang thai
