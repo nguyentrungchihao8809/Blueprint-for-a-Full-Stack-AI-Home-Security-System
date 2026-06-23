@@ -1,3 +1,4 @@
+import argparse
 import sys
 import threading
 import time
@@ -8,19 +9,28 @@ import serial.tools.list_ports
 BAUD_RATE = 9600
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Python bridge for Arduino serial control')
+    parser.add_argument('--port', default=None, help='Specify COM port manually (e.g. COM4)')
+    return parser.parse_args()
+
+
 def find_serial_port():
     preferred = ['COM4', 'COM5']
-    for port in preferred:
+    available = [port.device for port in serial.tools.list_ports.comports()]
+    print(f"[INFO] Ports available: {available if available else 'none'}")
+    for port in preferred + available:
         try:
             test = serial.Serial(port, BAUD_RATE, timeout=0.2)
             test.close()
             return port
         except Exception:
-            pass
+            continue
     return preferred[0]
 
 
-COM_PORT = find_serial_port()
+args = parse_args()
+COM_PORT = args.port if args.port else find_serial_port()
 
 
 class SerialBridge:
@@ -30,13 +40,14 @@ class SerialBridge:
         self.serial_conn = None
         self.is_running = False
         self.recv_thread = None
+        self.serial_lock = threading.Lock()
 
     def start(self):
         try:
             self.serial_conn = serial.Serial(
-                port=self.port, 
-                baudrate=self.baudrate, 
-                timeout=1
+                port=self.port,
+                baudrate=self.baudrate,
+                timeout=0.2
             )
             self.serial_conn.flushInput()
             self.serial_conn.flushOutput()
@@ -50,8 +61,13 @@ class SerialBridge:
             self.recv_thread.start()
             return True
             
-        except serial.SerialException as e:
+        except (serial.SerialException, OSError) as e:
             print(f"[ERROR] Khong the mo cong {self.port}: {e}")
+            fallback_port = find_serial_port()
+            if fallback_port != self.port:
+                print(f"[INFO] Thu lai cong khac: {fallback_port}")
+                self.port = fallback_port
+                return self.start()
             return False
 
     def stop(self):
@@ -65,14 +81,18 @@ class SerialBridge:
         
         while self.is_running:
             try:
-                if self.serial_conn.in_waiting > 0:
-                    raw_data = self.serial_conn.readline()
-                    decoded_data = raw_data.decode('utf-8').strip()
-                    
-                    if decoded_data:
-                        self._handle_incoming_data(decoded_data)
-                        
-                time.sleep(0.01)
+                if self.serial_conn and self.serial_conn.is_open:
+                    with self.serial_lock:
+                        if self.serial_conn.in_waiting > 0:
+                            raw_data = self.serial_conn.read(self.serial_conn.in_waiting)
+                            if raw_data:
+                                decoded = raw_data.decode('utf-8', errors='ignore')
+                                for line in decoded.splitlines():
+                                    cleaned = line.strip()
+                                    if cleaned:
+                                        print(f"[RAW-IN] {cleaned}")
+                                        self._handle_incoming_data(cleaned)
+                time.sleep(0.02)
             except Exception as e:
                 print(f"\n[ERROR] Mat ket noi khi doc du lieu: {e}")
                 self.is_running = False
@@ -124,28 +144,39 @@ class SerialBridge:
 
     def send_command(self, cmd):
         if self.serial_conn and self.serial_conn.is_open:
-            self.serial_conn.reset_input_buffer()
             payload = (cmd + "\r\n").encode('utf-8')
-            self.serial_conn.write(payload)
-            self.serial_conn.flush()
-
             reply_lines = []
-            deadline = time.time() + 1.0
-            while time.time() < deadline:
-                if self.serial_conn.in_waiting > 0:
-                    line = self.serial_conn.readline()
-                    if line:
-                        decoded = line.decode('utf-8', errors='ignore').strip()
-                        if decoded:
-                            reply_lines.append(decoded)
-                else:
-                    time.sleep(0.05)
 
+            with self.serial_lock:
+                for attempt in range(3):
+                    self.serial_conn.reset_input_buffer()
+                    self.serial_conn.write(payload)
+                    self.serial_conn.flush()
+
+                    deadline = time.time() + 1.0
+                    while time.time() < deadline:
+                        if self.serial_conn.in_waiting > 0:
+                            chunk = self.serial_conn.read(self.serial_conn.in_waiting)
+                            if chunk:
+                                decoded = chunk.decode('utf-8', errors='ignore')
+                                for line in decoded.splitlines():
+                                    cleaned = line.strip()
+                                    if cleaned:
+                                        reply_lines.append(cleaned)
+                                        print(f"[RAW] {cleaned}")
+                        else:
+                            time.sleep(0.05)
+
+                    if reply_lines:
+                        break
+                    time.sleep(0.2)
+
+            print(f"[TX] Da gui lenh: {cmd} (bytes={payload!r})")
             if reply_lines:
                 print(f"[SERIAL REPLY] {' | '.join(reply_lines)}")
             else:
                 print(f"[SERIAL WARNING] Khong nhan duoc phan hoi sau khi gui '{cmd}'")
-            print(f"[TX] Da gui lenh: {cmd} (bytes={payload!r})")
+                print(f"[INFO] Neu khong co response, kiem tra lai Proteus/HEX va cong COM ({self.port})")
             return True
         return False
 

@@ -1,3 +1,4 @@
+import argparse
 from ultralytics import YOLO
 import cv2
 import serial
@@ -11,19 +12,28 @@ BAUD_RATE = 9600
 CONFIDENCE = 0.3
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Person detection + serial control')
+    parser.add_argument('--port', default=None, help='Specify COM port manually (e.g. COM4)')
+    return parser.parse_args()
+
+
 def find_serial_port():
     preferred = ['COM4', 'COM5']
-    for port in preferred:
+    available = [port.device for port in serial.tools.list_ports.comports()]
+    print(f"[INFO] Ports available: {available if available else 'none'}")
+    for port in preferred + available:
         try:
             test = serial.Serial(port, BAUD_RATE, timeout=0.2)
             test.close()
             return port
         except Exception:
-            pass
+            continue
     return preferred[0]
 
 
-COM_PORT = find_serial_port()
+args = parse_args()
+COM_PORT = args.port if args.port else find_serial_port()
 
 # ============================================
 # KET NOI SERIAL VOI ARDUINO
@@ -49,12 +59,25 @@ print("San sang! Nhan 'Q' de thoat.\n")
 def send_signal(signal):
     if ser and ser.is_open:
         payload = (signal + "\r\n").encode('utf-8')
+        ser.reset_input_buffer()
         ser.write(payload)
         ser.flush()
-        time.sleep(0.2)
-        if ser.in_waiting > 0:
-            reply = ser.read(ser.in_waiting).decode('utf-8', errors='ignore')
-            print(f"[SERIAL REPLY] {reply.strip()}")
+
+        reply_lines = []
+        deadline = time.time() + 1.8
+        while time.time() < deadline:
+            if ser.in_waiting > 0:
+                raw = ser.read(ser.in_waiting)
+                if raw:
+                    decoded = raw.decode('utf-8', errors='ignore')
+                    reply_lines.extend([line.strip() for line in decoded.splitlines() if line.strip()])
+            else:
+                time.sleep(0.05)
+
+        if reply_lines:
+            print(f"[SERIAL REPLY] {' | '.join(reply_lines)}")
+        else:
+            print(f"[SERIAL WARNING] Khong nhan duoc phan hoi sau khi gui '{signal}'")
         print(f"[ARDUINO] Da gui tin hieu: '{signal}' (bytes={payload!r})")
 
 prev_person_count = -1

@@ -14,22 +14,28 @@ CONFIDENCE = 0.3
 
 def find_serial_port():
     preferred = ['COM4', 'COM5']
-    for port in preferred:
+    available = [port.device for port in serial.tools.list_ports.comports()]
+    print(f"[INFO] Ports available: {available if available else 'none'}")
+
+    for port in preferred + available:
+        if port in preferred and port not in available:
+            pass
         try:
-            probe = serial.Serial(port, BAUD_RATE, timeout=0.5)
+            probe = serial.Serial(port, BAUD_RATE, timeout=0.2, write_timeout=1)
             probe.reset_input_buffer()
             probe.reset_output_buffer()
             probe.write(b'7\r\n')
             probe.flush()
-            time.sleep(0.3)
-            reply = probe.read(probe.in_waiting).decode('utf-8', errors='ignore')
+            time.sleep(0.4)
+            raw = probe.read(probe.in_waiting) if probe.in_waiting > 0 else b''
+            reply = raw.decode('utf-8', errors='ignore')
             probe.close()
             if 'EVENT:' in reply or 'TEMP:' in reply:
                 print(f"[PORT-OK] {port} tra loi du lieu: {reply.strip()}")
                 return port
             print(f"[PORT-NOT-RESPOND] {port} khong tra loi.")
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[PORT-ERROR] {port}: {e}")
     return preferred[0]
 
 
@@ -46,9 +52,11 @@ COM_PORT = args.port if args.port else find_serial_port()
 # KET NOI SERIAL VOI ARDUINO
 # ============================================
 try:
-    ser = serial.Serial(COM_PORT, BAUD_RATE, timeout=1)
-    time.sleep(2)
-    print(f"[OK] Ket noi thanh cong voi {COM_PORT}")
+    ser = serial.Serial(COM_PORT, BAUD_RATE, timeout=0.5, write_timeout=1)
+    ser.reset_input_buffer()
+    ser.reset_output_buffer()
+    time.sleep(0.5)
+    print(f"[OK] Ket noi thanh cong voi {COM_PORT} ({BAUD_RATE} baud)")
 except Exception as e:
     print(f"[LOI] Khong the ket noi Serial: {e}")
     ser = None
@@ -66,27 +74,33 @@ print("San sang! Nhan 'Q' de thoat.\n")
 # ============================================
 def send_signal(signal):
     if ser and ser.is_open:
-        ser.reset_input_buffer()
         payload = (signal + "\r\n").encode('utf-8')
-        ser.write(payload)
-        ser.flush()
-
         reply_lines = []
-        deadline = time.time() + 1.2
-        while time.time() < deadline:
-            if ser.in_waiting > 0:
-                line = ser.readline()
-                if line:
-                    decoded = line.decode('utf-8', errors='ignore').strip()
-                    if decoded:
-                        reply_lines.append(decoded)
-            else:
-                time.sleep(0.05)
+
+        for attempt in range(3):
+            ser.reset_input_buffer()
+            ser.write(payload)
+            ser.flush()
+
+            deadline = time.time() + 1.0
+            while time.time() < deadline:
+                if ser.in_waiting > 0:
+                    raw = ser.read(ser.in_waiting)
+                    if raw:
+                        decoded = raw.decode('utf-8', errors='ignore')
+                        reply_lines.extend([line.strip() for line in decoded.splitlines() if line.strip()])
+                else:
+                    time.sleep(0.05)
+
+            if reply_lines:
+                break
+            time.sleep(0.2)
 
         if reply_lines:
             print(f"[SERIAL REPLY] {' | '.join(reply_lines)}")
         else:
             print(f"[SERIAL WARNING] Khong nhan duoc phan hoi sau khi gui '{signal}'")
+            print(f"[DEBUG] COM={ser.name} baud={ser.baudrate} timeout={ser.timeout}")
         print(f"[ARDUINO] Da gui tin hieu: '{signal}' (bytes={payload!r})")
 
 # Bien trang thai

@@ -50,7 +50,7 @@ void printData(int pirState, int doorState, int gasPPM) {
 
 void setup() {
   Serial.begin(9600);
-  while (!Serial) { ; }
+  delay(500);
   
   lcd.begin(16, 2);
   lcd.print("Smart Home AI");
