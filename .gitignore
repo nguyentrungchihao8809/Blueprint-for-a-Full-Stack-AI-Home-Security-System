@@ -1,0 +1,20 @@
+# Python / Credentials
+python_bridge/config/serviceAccountKey.json
+*.pyc
+__pycache__/
+
+# Android Build & IDE Caches
+/mobileKD/app/build/
+/mobileKD/.gradle/
+/mobileKD/.idea/
+/mobileKD/local.properties
+.gradle/
+build/
+
+# Web Dashboard / Node Caches
+/web_dashboard/node_modules/
+/web_dashboard/dist/
+
+# OS Files
+.DS_Store
+Thumbs.db

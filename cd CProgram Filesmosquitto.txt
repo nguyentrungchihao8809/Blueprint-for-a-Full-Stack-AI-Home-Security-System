@@ -1,0 +1,3 @@
+cd "C:\Program Files\mosquitto"
+Stop-Service -Name mosquitto
+.\mosquitto.exe -c .\mosquitto.conf -v

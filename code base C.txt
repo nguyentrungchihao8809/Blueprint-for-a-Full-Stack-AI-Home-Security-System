@@ -1,0 +1,184 @@
+#include <Arduino.h>
+#include <DHT.h>
+
+const int PIR_PIN = 2;          
+const int MAGNETIC_PIN = 3;     
+const int DHT_PIN = 4;          
+
+const int BUZZER_PIN = 8;    
+const int LED_RED_PIN = 13;   
+
+const int BUZZER_FIRE_PIN = 9; 
+const int LED_FIRE_PIN = 10;   
+
+#define DHTTYPE DHT11
+DHT dht(DHT_PIN, DHTTYPE);
+
+String inputString = "";     
+bool stringComplete = false; 
+
+bool isIntruderAlarm = false;   
+bool isFireAlarm = false;       
+bool isDoorAlarm = false;       
+
+int lastPIRState = LOW;      
+int lastMagneticState = HIGH;  
+
+unsigned long lastSensorReadTime = 0;
+const unsigned long SENSOR_INTERVAL = 2000;    
+
+unsigned long lastBlinkTimeWF1 = 0;
+unsigned long lastBlinkTimeWF2 = 0;
+unsigned long lastBlinkTimeWF3 = 0;
+bool ledBlinkStateWF1 = false;
+bool ledBlinkStateWF2 = false;
+bool ledBlinkStateWF3 = false;
+
+const unsigned long WARM_UP_BOOT_TIME = 10000; 
+
+bool isM_Sent = false;
+
+int getMockHour() {
+  return 23; 
+}
+
+void setup() {
+  Serial.begin(9600);
+  inputString.reserve(200);  
+
+  pinMode(PIR_PIN, INPUT);
+  pinMode(MAGNETIC_PIN, INPUT_PULLUP);
+  
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(LED_RED_PIN, OUTPUT);
+  pinMode(BUZZER_FIRE_PIN, OUTPUT);
+  pinMode(LED_FIRE_PIN, OUTPUT);
+
+  dht.begin();
+
+  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(LED_RED_PIN, LOW);
+  digitalWrite(BUZZER_FIRE_PIN, LOW);
+  digitalWrite(LED_FIRE_PIN, LOW);
+}
+
+void loop() {
+  unsigned long currentMillis = millis(); 
+
+  int currentPIRState = digitalRead(PIR_PIN);
+  if (currentPIRState == HIGH && lastPIRState == LOW) {
+    Serial.println("K");  
+    lastPIRState = HIGH;  
+    delay(200);           
+  } 
+  else if (currentPIRState == LOW && lastPIRState == HIGH) {
+    lastPIRState = LOW;
+  }
+
+  int currentMagneticState = digitalRead(MAGNETIC_PIN);
+  if (currentMagneticState == HIGH && lastMagneticState == LOW) {
+    int currentHour = getMockHour();
+    if (currentHour >= 22 || currentHour < 6) {
+      isDoorAlarm = true;
+      Serial.println("O");
+    }
+    lastMagneticState = HIGH;
+    delay(200);
+  }
+  else if (currentMagneticState == LOW && lastMagneticState == HIGH) {
+    lastMagneticState = LOW;
+  }
+
+  if (currentMillis - lastSensorReadTime >= SENSOR_INTERVAL) {
+    lastSensorReadTime = currentMillis;
+
+    float temperature = dht.readTemperature();
+    bool fireDetectedThisCycle = false;
+
+    if (currentMillis > WARM_UP_BOOT_TIME) {
+      if (!isnan(temperature)) {
+        if (temperature > 45.0) { 
+          fireDetectedThisCycle = true;
+          if (!isM_Sent) {
+            Serial.println("M");  
+            isM_Sent = true;
+          }
+        } else {
+          isM_Sent = false; 
+        }
+      }
+
+      if (fireDetectedThisCycle) {
+        isFireAlarm = true; 
+      } else {
+        isFireAlarm = false;
+        digitalWrite(BUZZER_FIRE_PIN, LOW);
+        digitalWrite(LED_FIRE_PIN, LOW);
+      }
+    }
+  }
+
+  if (stringComplete) {
+    inputString.trim(); 
+
+    if (inputString == "KL") {
+      isIntruderAlarm = true; 
+    }
+    else if (inputString == "KF") {
+      isIntruderAlarm = false; 
+      if (!isDoorAlarm) {      
+        digitalWrite(BUZZER_PIN, LOW);   
+        digitalWrite(LED_RED_PIN, LOW);  
+      }
+    }
+    else if (inputString == "OP") {
+      isDoorAlarm = false;     
+      if (!isIntruderAlarm) {  
+        digitalWrite(BUZZER_PIN, LOW);   
+        digitalWrite(LED_RED_PIN, LOW);  
+      }
+    }
+
+    inputString = "";
+    stringComplete = false;
+  }
+
+  if (isIntruderAlarm) {
+    digitalWrite(BUZZER_PIN, HIGH); 
+    if (currentMillis - lastBlinkTimeWF1 >= 200) {
+      ledBlinkStateWF1 = !ledBlinkStateWF1;
+      digitalWrite(LED_RED_PIN, ledBlinkStateWF1 ? HIGH : LOW);
+      lastBlinkTimeWF1 = currentMillis;
+    }
+  }
+
+  if (isDoorAlarm) {
+    digitalWrite(BUZZER_PIN, HIGH); 
+    if (currentMillis - lastBlinkTimeWF3 >= 200) {
+      ledBlinkStateWF3 = !ledBlinkStateWF3;
+      digitalWrite(LED_RED_PIN, ledBlinkStateWF3 ? HIGH : LOW);
+      lastBlinkTimeWF3 = currentMillis;
+    }
+  }
+
+  if (isFireAlarm) {
+    digitalWrite(BUZZER_FIRE_PIN, HIGH); 
+    if (currentMillis - lastBlinkTimeWF2 >= 80) { 
+      ledBlinkStateWF2 = !ledBlinkStateWF2;
+      digitalWrite(LED_FIRE_PIN, ledBlinkStateWF2 ? HIGH : LOW);
+      lastBlinkTimeWF2 = currentMillis;
+    }
+  }
+}
+
+void serialEvent() {
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+    if (inChar == '\n') {
+      stringComplete = true;
+    } 
+    else if (inChar != '\r') { 
+      inputString += inChar;
+    }
+  }
+}
